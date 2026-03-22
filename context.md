@@ -155,6 +155,9 @@ Throughout these files:
 9. **09_learning_governance.md**  
    Meta-learning, governance, auditability, and long-horizon adaptation.
 
+10. **10_graph_planning_playbook.md**  
+    Practical graph synthesis, node selection, edge design, and planning artifacts.
+
 ## Suggested reading order
 
 Use the pack in this order:
@@ -168,6 +171,7 @@ Use the pack in this order:
 7. Risk + budgeting
 8. Deployment
 9. Learning + governance
+10. Graph planning playbook
 
 ## Operating assumption
 
