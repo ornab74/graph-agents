@@ -267,33 +267,328 @@ A swarm of agents samples candidate strategies. Each agent evolves its distribut
 
 The best solution is not necessarily the cheapest patch. It is the patch that best fits the mission graph’s control loop.
 
-## 11. Relation to Mission-Graph Control
+## 11. Formal Properties
 
-The appendix’s search layer must remain subordinate to the mission graph’s control logic. That means three constraints always dominate:
+The quantum-inspired layer is only useful if it obeys the mission graph’s control constraints. We therefore state several properties the search layer should satisfy.
 
-1. no search result may bypass provenance
-2. no search result may bypass verification
-3. no search result may bypass governance
+### 11.1 Evidence Monotonicity
 
-This matters because search can easily become a source of overconfidence. A low-energy configuration is not automatically a safe configuration. It must still pass through proof-carrying context, obligation discharge, and safe-set projection.
+Let $E_t$ denote the amount of usable evidence available to the swarm at time $t$. A valid update should not reduce evidence availability for downstream control unless it has been explicitly quarantined. Informally, the search layer may transform evidence, but it should not destroy the mission graph’s ability to explain its own decisions.
 
-The right way to think about the variational swarm is therefore as a proposal engine. It proposes candidate states. The mission graph decides whether those states are admissible.
+This leads to a simple rule:
 
-## 12. Limitations
+$$
+E_{t+1} \ge E_t - q_t,
+$$
 
-This approach has real limitations.
+where $q_t$ is quarantined or invalidated evidence. Search may create candidate states; it may not silently erase provenance.
 
-- The QUBO mapping may be lossy for some mission choices.
-- Classical simulation may not scale cleanly to all high-entanglement regimes.
-- Variational methods can get trapped in local minima if the ansatz is poor.
-- The search layer can create more complexity if it is not tightly coupled to evidence.
-- In some settings, a simpler search heuristic may be enough.
+### 11.2 Rollback Compatibility
 
-The point is not that variational swarm search should always be used. The point is that it provides a principled option for mission-graph subproblems with combinatorial structure.
+Any search-generated candidate must be rollback-compatible. In practice, that means the candidate graph or implementation state should preserve a bounded recovery path. If a variational update produces a lower-energy state that cannot be rolled back, then the state is not admissible for high-stakes deployment.
 
-## 13. Conclusion
+This can be expressed as a feasibility predicate:
 
-Quantum-inspired swarm search gives mission graphs a stronger optimization primitive for hard discrete problems. It preserves broad exploration while biasing toward low-energy, high-value configurations. Used carefully, it can improve planning, synthesis, and verification without violating the mission graph’s core requirements for provenance, rollout safety, and governance.
+$$
+\operatorname{Feasible}(\mathbf{x}) = \mathbf{1}\{\text{proof obligations} \wedge \text{rollback witness} \wedge \text{governance clearance}\}.
+$$
 
-The main lesson is simple: mission graphs need not search greedily. They can search variationally, collectively, and evidence-aware. That is the real value of the appendix.
+### 11.3 Provenance-Respecting Search
 
+The swarm should not be allowed to explore beyond the evidence envelope. Let $r_t$ be an exploration radius and let $\mathcal{N}(m_t)$ denote the admissible neighborhood in provenance space. Then the agent update should satisfy:
+
+$$
+\mathbf{x}_{t+1}^{(i)} \in \mathcal{N}(m_t) \cup \mathcal{Q}_t,
+$$
+
+where $\mathcal{Q}_t$ is the explicit quarantine set of rejected or suspicious states.
+
+This property matters because it prevents the optimizer from converging to states that are efficient but unauditable.
+
+### 11.4 Reservoir-Consistent Learning
+
+If a counterexample reservoir is part of the system, then the swarm’s future distributions should place lower mass on counterexample-like regions. That is a consistency condition:
+
+$$
+\Pr(\mathbf{x} \mid \mathcal{R}_{t+1}) \le \Pr(\mathbf{x} \mid \mathcal{R}_t)
+$$
+
+for states that match a high-severity counterexample class, unless new evidence reopens that region.
+
+This is the mathematical version of institutional memory.
+
+## 12. Search, Governance, and Security
+
+Any optimizer that can search deeply can also search into dangerous corners. Mission graphs therefore require security and governance to wrap the swarm search layer tightly.
+
+### 12.1 Search Must Respect Permissions
+
+A swarm agent may discover a promising state, but if the state requires permissions the agent does not have, the state is not executable. This is not a nuisance. It is a feature.
+
+Search results should be filtered by the node’s permission set:
+
+$$
+\operatorname{Admissible}(\mathbf{x}) = \mathbf{1}\{\operatorname{Perm}(\mathbf{x}) \subseteq \Theta_v\}.
+$$
+
+This keeps search from becoming a covert privilege escalation mechanism.
+
+### 12.2 Security Evidence as a Cost Term
+
+Security-sensitive changes should pay an explicit evidence cost. If a candidate state reduces runtime cost but increases audit or compliance burden, the search objective should reflect that burden.
+
+We can extend the cost:
+
+$$
+C_{\text{safe}}(\mathbf{x}) = C(\mathbf{x}) + \alpha S(\mathbf{x}) + \beta G(\mathbf{x}),
+$$
+
+where $S(\mathbf{x})$ is security risk and $G(\mathbf{x})$ is governance friction. This prevents the swarm from chasing cheap but unsafe minima.
+
+### 12.3 Adversarial Pressure
+
+Because the swarm search layer is inherently exploratory, it should be tested under adversarial pressure. That means:
+
+- inject misleading counterexamples
+- perturb the evidence ledger
+- corrupt low-value branches
+- force the optimizer to operate under reduced budgets
+
+If the search layer is robust, it should still converge on admissible states or gracefully escalate to human review.
+
+## 13. Learning the Search Policy
+
+The variational search layer itself can be learned. That is, the system can adapt its ansatz, mixer schedule, sampling depth, or branch communication pattern based on mission outcomes.
+
+Let $\phi$ parameterize the search policy: layer depth, annealing schedule, reservoir weighting, and branch exchange frequency. The meta-objective is:
+
+$$
+\max_{\phi}\ \mathbb{E}[G_{\text{mission}}] - \lambda \operatorname{Risk} - \mu \operatorname{SearchCost}.
+$$
+
+This makes the optimizer itself part of the mission graph.
+
+### 13.1 What the Search Policy Learns
+
+The policy can learn:
+
+- which problem classes benefit from deeper variational layers
+- when to branch into more agents
+- when to collapse exploration and sample aggressively
+- how to weight counterexamples from different severity classes
+- how to trade off search depth against evidence cost
+
+### 13.2 Policy Evaluation
+
+The search policy should be evaluated on more than success rate. Useful metrics include:
+
+- time to first admissible candidate
+- rate of admissible samples per unit budget
+- counterexample reuse rate
+- search diversity before collapse
+- calibration of search confidence against actual downstream success
+
+These metrics parallel the mission graph’s broader evaluation philosophy: the system is judged by whether it creates stable, auditable progress.
+
+## 14. A Longer Worked Example: Binary Synthesis in Practice
+
+Consider a mission to generate a high-performance binary for a constrained device.
+
+The planner must choose among instruction selection, register allocation, inlining depth, loop unrolling, and memory layout. Each decision interacts with the others. A greedy compiler might optimize one pass at a time, but the combined search space is highly nonconvex.
+
+The quantum-inspired swarm approach starts by encoding the choices into a binary objective. The cost function includes code size, instruction latency, power consumption, and cache behavior. The agent swarm then explores candidate binaries in parallel:
+
+- one branch favors compactness
+- another favors throughput
+- another favors power efficiency
+- another preserves rollback simplicity and auditability
+
+Each candidate is evaluated against the mission graph’s evidence plane. If a candidate requires a verifier path that is too expensive, or if it violates provenance rules for deployment, that candidate is penalized or discarded.
+
+As the swarm iterates, the evidence reservoir accumulates counterexamples:
+
+- code size exploded after a particular unrolling pattern
+- a register allocation caused cache thrash
+- a high-throughput path required unacceptably fragile rollback behavior
+
+Those counterexamples are then fed back into future search trajectories. The result is not a perfect optimizer, but a memory-rich one. The swarm improves because it remembers what not to do.
+
+The important mission-graph insight is that the binary synthesis problem is not only about producing the fastest binary. It is about producing the fastest binary that still satisfies the delivery system’s evidence, rollback, and governance constraints.
+
+## 15. Integration With Mission-Graph Control
+
+The search layer must stay subordinate to the mission graph’s control architecture. That means the following invariants are mandatory:
+
+1. no search result bypasses provenance
+2. no search result bypasses verification
+3. no search result bypasses governance
+4. no search result bypasses rollback compatibility
+
+This makes the variational swarm a proposal engine, not an authority. It can propose a candidate graph, code path, or evidence portfolio, but the mission graph decides whether the proposal is admissible.
+
+This distinction is critical. Without it, search becomes a source of hidden autonomy: the system may discover attractive states that are efficient but outside the governed envelope. With it, search becomes a disciplined mechanism for navigating large discrete spaces safely.
+
+## 16. Limitations and Open Problems
+
+The approach is promising but incomplete.
+
+- The Ising mapping can be lossy.
+- Variational ansatzes can underfit difficult landscapes.
+- Classical simulation may struggle with high-entanglement regimes.
+- Search layers can increase complexity if not tightly integrated.
+- Evidence coupling can slow the system if overused.
+
+Open questions include:
+
+- how to choose ansatz families for mission-graph subproblems
+- how to detect when search is overexploring
+- how to benchmark search policies against simpler heuristics
+- how to keep swarm communication efficient as the number of agents scales
+- how to combine variational search with proof-carrying deployment
+
+These are engineering questions, not reasons to reject the framework.
+
+## 17. Conclusion
+
+Quantum-inspired swarm search is a useful extension of mission graphs because it gives the system a principled way to search large binary spaces under evidence, rollback, and governance constraints. It is not a replacement for planning or verification. It is a search primitive that helps the planner and verifier explore many discrete alternatives without losing traceability.
+
+The deepest reason it fits mission graphs is that both systems are about structured uncertainty. Mission graphs structure uncertainty around delivery. Variational swarm search structures uncertainty around combinatorial optimization. Combined, they offer a way to search broadly, converge carefully, and preserve the evidence plane that makes autonomy governable.
+
+The takeaway is simple: if the mission graph is the control loop, quantum-inspired swarm search can become the search engine inside that loop.
+
+## 18. Operational Loop
+
+The most useful way to think about the search layer is as an operational loop inside the mission graph.
+
+1. The planner defines a combinatorial subproblem and encodes it as a cost landscape.
+2. The swarm initializes a distribution over candidate solutions.
+3. Variational updates bias the distribution toward promising regions.
+4. Evidence and provenance filter out inadmissible candidates.
+5. Counterexamples and failures are written back to the reservoir.
+6. The best admissible candidate is promoted to the next mission-graph stage.
+
+This loop matters because it mirrors the rest of the mission graph. The graph already treats execution as staged, evidence-conditioned, and rollbackable. Quantum-inspired search fits that pattern naturally. It is simply a more expressive search engine for the same operating model.
+
+### 18.1 Search, Verify, Promote
+
+The search layer should not be thought of as “solving everything.” It should be thought of as narrowing the field of plausible candidates before proof obligations and deployment constraints take over.
+
+That creates a clean division of labor:
+
+- search proposes
+- verification filters
+- governance constrains
+- deployment actuates
+
+This division is valuable because it keeps the search layer honest. A variational swarm can explore broadly, but it never gets to declare victory on its own.
+
+### 18.2 When Search Should Stop
+
+Search should stop when one of four conditions is met:
+
+- the best admissible candidate clears the risk threshold
+- additional exploration has diminishing evidence exchange rate
+- the counterexample reservoir says the current region is already well understood
+- the rollout or human budget required for further exploration would exceed the mission’s value
+
+This is the same stopping logic used throughout mission graphs: stop not when curiosity is exhausted, but when the value of additional uncertainty reduction no longer justifies the cost.
+
+## 19. Deployment, Governance, and Safety
+
+Because the search layer can be powerful, it must also be bounded.
+
+The primary safety rule is that a candidate discovered by variational search is not a valid operational choice until it has passed the same evidence plane as any other mission-graph artifact. That means:
+
+- provenance must be explicit
+- verifier obligations must be discharged
+- rollback compatibility must be present
+- permissions must be checked
+- governance receipts must exist
+
+This is especially important if the search layer is used to generate low-level binaries or layout decisions. A search that produces an impressive solution but cannot explain its provenance is not acceptable in a production mission graph.
+
+### 19.1 Governance as a Filter on Search
+
+Governance should be represented directly in the search cost:
+
+$$
+C_{\text{governed}}(\mathbf{x}) = C(\mathbf{x}) + \alpha P(\mathbf{x}) + \beta V(\mathbf{x}) + \gamma R(\mathbf{x}),
+$$
+
+where $P$ measures permission friction, $V$ measures verification burden, and $R$ measures rollback fragility.
+
+This keeps the swarm from drifting toward unsafe minima. It also makes governance legible as a search bias rather than a vague after-the-fact veto.
+
+### 19.2 Safety by Construction
+
+The strongest version of the framework is safety by construction. The swarm may explore many candidates, but only admissible candidates are allowed to leave the search layer. That means the swarm can be aggressive internally while the mission graph remains conservative externally.
+
+This is an important distinction. It allows the system to explore boldly without shipping boldly.
+
+## 20. Future Work
+
+Several directions would make this framework more concrete:
+
+- benchmark the variational swarm against greedy and beam-search planners on mission-graph synthesis tasks
+- test whether counterexample reservoirs improve convergence on repeated binary subproblems
+- measure how much evidence-carrying search reduces rollback frequency in realistic deployment scenarios
+- compare different ansatz families for planning, verification, and rollout selection
+- study whether provenance-aware search reduces repeated traversal of unsafe regions
+
+It would also be useful to explore hybrid systems in which the mission graph uses different search policies for different layers:
+
+- greedy policies for simple control decisions
+- variational swarm search for combinatorial topology problems
+- classic optimization for stable, well-understood subproblems
+
+That kind of hybrid design is probably the most realistic deployment path. Not every part of the graph needs quantum-inspired search. But the parts that do have it should benefit from a search policy that can preserve broad exploration while still converging toward evidence-friendly solutions.
+
+## 21. Final Summary
+
+Quantum-inspired swarm search is a speculative but useful extension to mission graphs. It gives the system a principled way to search hard discrete spaces while retaining the mission graph’s core virtues: provenance, rollback, verification, and governance.
+
+The main idea is simple: use variational search to propose candidates, then let the mission graph decide what can actually be trusted, shipped, and learned from. That keeps the search layer powerful without letting it become authoritative.
+
+If the broader mission-graph program is about controlled autonomy, this appendix is about controlled search. And that makes it a natural extension of the same philosophy.
+
+## 22. Practical Deployment Path
+
+The most realistic way to adopt quantum-inspired swarm search is incrementally.
+
+Start with the least risky use case: planner augmentation. In that setting, the swarm does not directly change shipping behavior. It merely proposes candidate graph topologies, budget allocations, or evidence portfolios. Human operators and existing mission-graph gates then decide whether the proposal is worth adopting. This makes the search layer observable before it becomes operational.
+
+Next, use the swarm for verifier routing. Here the search problem is easier to bound because the output is not a code path but an evidence plan. The system can compare multiple verifier portfolios under budget, then pick the portfolio with the highest expected risk reduction per unit cost. That is a natural fit for the variational objective.
+
+Only after those two stages should the search layer be allowed to influence builder decisions. Even then, it should do so as a proposal engine rather than a hard controller. The builder can accept a suggested implementation strategy, but the implementation still has to pass through proof-carrying context, verification, and safe-set projection.
+
+This staged adoption path matters because it gives the organization time to measure where the swarm actually helps. If the search layer reduces time to admissible candidate, lowers rollback frequency, or improves evidence reuse, then it is justified. If it only adds complexity, the mission graph can keep the rest of the architecture and drop the search layer.
+
+### 22.1 Evaluation Checklist
+
+A practical deployment should measure:
+
+- time to first admissible candidate
+- number of candidates explored before convergence
+- evidence exchange rate of proposed candidates
+- counterexample reuse across missions
+- changes in rollback frequency after adoption
+- planner latency relative to a greedy baseline
+
+These metrics make the contribution concrete. They also protect the system from overclaiming. The goal is not to declare quantum-inspired search universally superior. The goal is to determine whether it is a useful search primitive for specific mission-graph subproblems.
+
+### 22.2 Where the Benefit Should Appear
+
+If the idea works, the biggest wins should appear in places where the search space is both discrete and coupled:
+
+- graph synthesis under budget
+- evidence portfolio selection
+- low-level binary synthesis with many interacting constraints
+- route selection under rollback and provenance constraints
+
+These are exactly the kinds of problems that resist trivial heuristics. They are also exactly the kinds of problems that mission graphs already need to solve.
+
+The practical conclusion is therefore modest but strong: quantum-inspired swarm search is a good candidate optimization layer for mission graphs if it can be kept subordinate to evidence, governance, and rollback. That is the right standard, and it is the one this paper adopts.
+
+### 22.3 Closing Note
+
+The reason this matters is simple: mission graphs are about controlled autonomy, and variational swarm search is about controlled exploration. When those two ideas are composed carefully, the system gains a better way to search, but not a weaker way to govern at scale and safely.
