@@ -158,6 +158,18 @@ Throughout these files:
 10. **10_graph_planning_playbook.md**  
     Practical graph synthesis, node selection, edge design, and planning artifacts.
 
+11. **11_context_routing_policy.md**  
+    Graph-level context routing, evidence bundles, freshness, and write policies.
+
+12. **12_verification_orchestration.md**  
+    Verifier dependency graphs, gate composition, proof obligations, and eval routing.
+
+13. **13_risk_to_deploy_interface.md**  
+    Closed-loop coupling between risk budgets, rollout control, and governance.
+
+14. **14_solved_world_operating_model.md**  
+    Future-state synthesis of the mission graph as a working software execution substrate.
+
 ## Suggested reading order
 
 Use the pack in this order:
@@ -172,6 +184,10 @@ Use the pack in this order:
 8. Deployment
 9. Learning + governance
 10. Graph planning playbook
+11. Context routing policy
+12. Verification orchestration
+13. Risk-to-deploy interface
+14. Solved world operating model
 
 ## Operating assumption
 
